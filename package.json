@@ -1,0 +1,12 @@
+{
+  "name": "tg-miniapp-cs16",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "express": "^4.19.2",
+    "grammy": "^1.26.1",
+    "node-fetch": "^3.3.2",
+    "dotenv": "^16.4.5"
+  }
+}
