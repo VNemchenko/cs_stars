@@ -30,7 +30,7 @@ total = BASE_PRICE_STARS
 `duration` is clamped to 1–72 hours and `bot_quota` to 0–9 slots.
 
 ## Environment Variables
-Create a `.env` file with the following keys:
+Create a `.env` file (see `.env.example`) with the following keys:
 
 ```
 BOT_TOKEN=                 # Telegram bot token
@@ -52,7 +52,7 @@ Install dependencies and start the server:
 
 ```
 npm install
-node server.js
+npm start
 ```
 
 The Express server serves the mini app at `/web/`, exposes `/api/price` and `/api/invoice` endpoints, and starts the Telegram bot. `/healthz` can be used for simple monitoring.

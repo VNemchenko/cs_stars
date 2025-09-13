@@ -1,13 +1,16 @@
 import 'dotenv/config';
 import express from 'express';
 import crypto from 'crypto';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
 import { Bot, InlineKeyboard } from 'grammy';
 import { provisionServer } from './provision/pterodactyl.js';
 
 const app = express();
 app.use(express.json());
-app.use('/web', express.static('./web'));
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use('/web', express.static(path.join(__dirname, 'web')));
 
 const {
   BOT_TOKEN, WEBAPP_URL,
