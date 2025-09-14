@@ -1,0 +1,10 @@
+{
+  "name": "CS 1.6 (ReHLDS)",
+  "startup": "echo Starting CS 1.6 on ${SERVER_PORT} map ${MAP}; sleep infinity",
+  "docker_images": { "alpine:3.19": "Alpine" },
+  "variables": [
+    { "env_variable": "SERVER_PORT", "name": "Server Port", "description": "UDP/TCP port", "default_value": "27015", "rules": "required|integer", "user_editable": true },
+    { "env_variable": "MAP", "name": "Start Map", "description": "Initial map", "default_value": "de_dust2", "rules": "string", "user_editable": true }
+  ]
+}
+

@@ -1,0 +1,9 @@
+{
+  "name": "SA-MP 0.3 Server",
+  "startup": "echo Launching SA-MP on ${PORT}; sleep infinity",
+  "docker_images": { "alpine:3.19": "Alpine" },
+  "variables": [
+    { "env_variable": "PORT", "name": "Port", "description": "Server port", "default_value": "7777", "rules": "required|integer", "user_editable": true }
+  ]
+}
+
