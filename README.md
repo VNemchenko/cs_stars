@@ -11,7 +11,7 @@ Project layout
 - `cs_stars/server.mjs`: HTTP server with API and static hosting.
 - `cs_stars/web/index.html`: UI to select game/server and parameters.
 - `cs_stars/web/app.js`: UI logic fetching eggs and launching.
-- `cs_stars/eggs/catalog.js`: Reads egg JSON files and exposes catalog helpers.
+- `cs_stars/eggs/catalog.mjs`: Reads egg JSON files and exposes catalog helpers.
 - `cs_stars/eggs/*.json`: Put your egg definitions here (Pterodactyl-style JSON).
 - `cs_stars/.env.example`: Example environment config.
 

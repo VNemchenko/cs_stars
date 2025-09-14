@@ -65,7 +65,7 @@ function readBody(req) {
   });
 }
 
-function substituteStartup(startup, vars) {
+export function substituteStartup(startup, vars) {
   let cmd = String(startup || '');
   // ${KEY} style
   cmd = cmd.replace(/\$\{([A-Z0-9_]+)\}/g, (_, k) => (k in vars ? String(vars[k]) : ''));
@@ -74,7 +74,7 @@ function substituteStartup(startup, vars) {
   return cmd.trim();
 }
 
-function buildDockerRun(egg, vars) {
+export function buildDockerRun(egg, vars) {
   const image = egg.docker_image || DEFAULT_DOCKER_IMAGE;
   const timestamp = Date.now();
   const name = `game-${egg.slug}-${timestamp}`.replace(/[^a-z0-9_.-]/gi, '-');
@@ -85,7 +85,7 @@ function buildDockerRun(egg, vars) {
   const port = vars.SERVER_PORT || vars.PORT || vars.GAME_PORT;
   const portArgs = port ? ['-p', `${port}:${port}/udp`, '-p', `${port}:${port}/tcp`] : [];
 
-  const startupCmd = substituteStartup(egg.startup || 'echo "No startup provided"', vars) || 'sh -lc "echo No startup provided"';
+  const startupCmd = substituteStartup(egg.startup || 'echo "No startup provided"', vars) || 'echo "No startup provided"';
   const finalCmd = ['sh', '-lc', startupCmd];
 
   const args = ['run', '-d', '--name', name, ...envArgs, ...portArgs, image, ...finalCmd];
@@ -163,7 +163,12 @@ const server = http.createServer((req, res) => {
   return serveStatic(req, res);
 });
 
-server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`[cs_stars] Server listening on http://localhost:${PORT}`);
-});
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+  server.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`[cs_stars] Server listening on http://localhost:${PORT}`);
+  });
+}
+
+export default server;
