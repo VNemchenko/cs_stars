@@ -1,67 +1,41 @@
-# Telegram Mini App — CS 1.6 Rental (Stars)
+Game Server Launcher (cs_stars)
 
-This project provides a minimal end-to-end example of a Telegram **Mini App** paired with a **Bot** that rents temporary Counter-Strike 1.6 servers. Users configure a server in the web app, pay with **Telegram Stars**, and the bot provisions a server on a **Pterodactyl** panel.
+What it does
+- Reads game server "eggs" from `cs_stars/eggs/*.json` and builds a catalog.
+- Serves a small web UI to choose a game, then a server, then its parameters.
+- On launch:
+  - Dry-run by default: shows the `docker run ...` command it would execute.
+  - If `ENABLE_DOCKER_RUN=true`, runs the container detached via Docker.
 
-## Features
-- Single-page web mini app built with vanilla HTML and the Telegram WebApp JS SDK.
-- Node.js backend using Express and Grammy that exposes REST endpoints and a Telegram bot.
-- Price calculation and Telegram Stars (currency `XTR`) invoicing via `createInvoiceLink`.
-- Placeholder provisioning function for a Pterodactyl game server panel.
+Project layout
+- `cs_stars/server.mjs`: HTTP server with API and static hosting.
+- `cs_stars/web/index.html`: UI to select game/server and parameters.
+- `cs_stars/web/app.js`: UI logic fetching eggs and launching.
+- `cs_stars/eggs/catalog.js`: Reads egg JSON files and exposes catalog helpers.
+- `cs_stars/eggs/*.json`: Put your egg definitions here (Pterodactyl-style JSON).
+- `cs_stars/.env.example`: Example environment config.
 
-## Project Structure
-```
-.
-├── server.js                # Express server + Telegram bot
-├── provision/pterodactyl.js # Pterodactyl provisioning helper
-└── web/                     # Mini app static files
-    ├── index.html
-    └── app.js
-```
+Run locally
+1) Add eggs: place JSON files in `cs_stars/eggs`. Each should include at least:
+   - `name`: human-readable name
+   - `startup`: command line with variables like `${SERVER_PORT}` or `{{SERVER_PORT}}`
+   - `docker_images`: object of images (first is used), e.g. `{ "ghcr.io/game:latest": "Game" }`
+   - `variables`: array with `{ env_variable, name, description, default_value, rules, user_editable }`
 
-## Pricing
-The backend computes the total price in Stars as:
+2) Configure env (optional):
+   - Copy `cs_stars/.env.example` to `.env` and adjust values.
+   - Or set env vars directly when starting the server.
 
-```
-total = BASE_PRICE_STARS
-        + STARS_PER_HOUR * duration
-        + STARS_BOT_PER_SLOT * bot_quota
-```
+3) Start server:
+   - `node cs_stars/server.mjs`
+   - Open `http://localhost:3010`
 
-`duration` is clamped to 1–72 hours and `bot_quota` to 0–9 slots.
+Launch behavior
+- Dry-run (default): returns a JSON response with the `docker run` command. UI displays it.
+- Real run: set `ENABLE_DOCKER_RUN=true` and ensure Docker is installed and available in PATH.
+- Port mapping: if a variable `SERVER_PORT` (or `PORT`/`GAME_PORT`) is present, it maps TCP and UDP on the same number.
 
-## Environment Variables
-Create a `.env` file (see `.env.example`) with the following keys:
-
-```
-BOT_TOKEN=                 # Telegram bot token
-WEBAPP_URL=                # Public URL to /web/index.html
-BASE_PRICE_STARS=50        # (optional) base cost in Stars
-STARS_PER_HOUR=25          # (optional) price per hour
-STARS_BOT_PER_SLOT=2       # (optional) price per bot slot
-
-PTERO_PANEL_URL=           # Base URL of your Pterodactyl panel
-PTERO_API_KEY=             # Admin API key
-PTERO_EGG_ID=              # Egg ID for CS 1.6 container
-PTERO_LOCATION_ID=         # Location ID to deploy to
-PTERO_USER_ID=             # Panel user ID servers are created under
-PORT=3000                  # (optional) HTTP port
-```
-
-## Running
-Install dependencies and start the server:
-
-```
-npm install
-npm start
-```
-
-The Express server serves the mini app at `/web/`, exposes `/api/price` and `/api/invoice` endpoints, and starts the Telegram bot. `/healthz` can be used for simple monitoring.
-
-Use `/start` in the bot to obtain a button that opens the mini app. After a successful Stars payment, the bot triggers `provisionServer` and replies with the server's connection info.
-
-## Provisioning
-`provision/pterodactyl.js` contains a minimal function that creates a CS 1.6 server via the Pterodactyl API. Fill in your panel details in the environment variables above. The function currently returns the allocated IP and port and a placeholder RCON password.
-
-## License
-Apache-2.0
+Notes
+- Grouping in the UI is by the slug prefix (before first `-`). Adjust easily in `web/app.js` if your eggs provide an explicit game field.
+- Windows paths are handled; catalog uses `fileURLToPath` for reliability.
 

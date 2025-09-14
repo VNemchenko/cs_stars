@@ -1,70 +1,145 @@
-;(function () {
-  const tg = window.Telegram.WebApp;
-  tg.expand();
-  tg.MainButton.hide();
+async function fetchJSON(url, opts = {}) {
+  const res = await fetch(url, { headers: { 'Accept': 'application/json' }, ...opts });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
-  const qs = (id) => document.getElementById(id);
-  const fields = ['duration', 'bot_dif', 'bot_quota', 'roundtime', 'c4timer', 'freezetime', 'buytime'];
+function groupByGame(eggs) {
+  const groups = new Map();
+  for (const e of eggs) {
+    const key = (e.slug || '').split('-')[0] || 'other';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(e);
+  }
+  return groups;
+}
 
-  function collect() {
-    const maps = Array.from(qs('mapcycle').selectedOptions).map((o) => o.value);
-    return {
-      duration: +qs('duration').value,
-      bot_dif: +qs('bot_dif').value,
-      bot_quota: +qs('bot_quota').value,
-      roundtime: +qs('roundtime').value,
-      c4timer: +qs('c4timer').value,
-      freezetime: +qs('freezetime').value,
-      buytime: +qs('buytime').value,
-      maps,
-    };
+function renderVars(container, egg) {
+  container.innerHTML = '';
+  if (!egg || !egg.variables || egg.variables.length === 0) {
+    container.innerHTML = '<div class="muted">Для этого сервера нет настраиваемых параметров.</div>';
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for (const v of egg.variables) {
+    const wrap = document.createElement('div');
+    const label = document.createElement('label');
+    label.textContent = `${v.name} (${v.key})`;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = v.default ?? '';
+    input.placeholder = v.rules || '';
+    input.disabled = v.user_editable === false;
+    input.dataset.key = v.key;
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = v.description || '';
+    wrap.appendChild(label);
+    wrap.appendChild(input);
+    if (hint.textContent) wrap.appendChild(hint);
+    grid.appendChild(wrap);
+  }
+  container.appendChild(grid);
+}
+
+function readVars(container) {
+  const vars = {};
+  container.querySelectorAll('input[data-key]').forEach((el) => {
+    vars[el.dataset.key] = el.value;
+  });
+  return vars;
+}
+
+async function main() {
+  const gameSelect = document.getElementById('gameSelect');
+  const serverSelect = document.getElementById('serverSelect');
+  const varsBox = document.getElementById('vars');
+  const launchBtn = document.getElementById('launchBtn');
+  const msg = document.getElementById('msg');
+
+  msg.textContent = 'Загрузка конфигураций...';
+  let eggs = [];
+  try {
+    const data = await fetchJSON('/api/eggs');
+    eggs = data.eggs || [];
+  } catch (e) {
+    msg.textContent = 'Не удалось загрузить список серверов';
+    return;
   }
 
-  async function updatePrice() {
-    try {
-      const res = await fetch('/api/price', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings: collect(), initData: tg.initData }),
-      });
-      const j = await res.json();
-      qs('price_xtr').textContent = j.total ?? '—';
-      qs('price_breakdown').textContent = j.breakdown ?? '';
-      return j;
-    } catch (e) {
-      console.error(e);
-      qs('price_xtr').textContent = '—';
-      qs('price_breakdown').textContent = '';
-      return null;
+  msg.textContent = '';
+  const groups = groupByGame(eggs);
+  const gameKeys = Array.from(groups.keys()).sort();
+  gameSelect.innerHTML = gameKeys.map((k) => `<option value="${k}">${k.toUpperCase()}</option>`).join('');
+  serverSelect.innerHTML = '';
+  serverSelect.disabled = true;
+  launchBtn.disabled = true;
+  varsBox.innerHTML = '';
+
+  function onGameChange() {
+    const key = gameSelect.value;
+    const list = (groups.get(key) || []).slice().sort((a,b)=> a.name.localeCompare(b.name));
+    serverSelect.innerHTML = list.map((e) => `<option value="${e.slug}">${e.name}</option>`).join('');
+    serverSelect.disabled = list.length === 0;
+    if (list.length) {
+      serverSelect.value = list[0].slug;
+      onServerChange();
+    } else {
+      varsBox.innerHTML = '';
+      launchBtn.disabled = true;
     }
   }
 
-  fields.forEach((id) => qs(id).addEventListener('input', updatePrice));
-  qs('mapcycle').addEventListener('change', updatePrice);
-  updatePrice();
-
-  qs('payBtn').addEventListener('click', async () => {
-    const settings = collect();
-    const btn = qs('payBtn');
-    btn.disabled = true;
+  async function onServerChange() {
+    const slug = serverSelect.value;
+    if (!slug) return;
+    msg.textContent = '';
     try {
-      const res = await fetch('/api/invoice', {
+      const { egg } = await fetchJSON(`/api/eggs/${encodeURIComponent(slug)}`);
+      renderVars(varsBox, egg);
+      launchBtn.disabled = false;
+    } catch (e) {
+      varsBox.innerHTML = '';
+      launchBtn.disabled = true;
+      msg.textContent = 'Ошибка загрузки параметров сервера';
+    }
+  }
+
+  gameSelect.addEventListener('change', onGameChange);
+  serverSelect.addEventListener('change', onServerChange);
+
+  launchBtn.addEventListener('click', async () => {
+    const slug = serverSelect.value;
+    const params = readVars(varsBox);
+    launchBtn.disabled = true;
+    msg.textContent = 'Запуск...';
+    try {
+      const res = await fetchJSON('/api/launch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ settings, initData: tg.initData }),
+        body: JSON.stringify({ slug, params })
       });
-      const { ok, link, error } = await res.json();
-      if (!ok) throw new Error(error);
-      tg.openInvoice(link, (status) => {
-        if (status === 'paid') {
-          tg.showPopup({ title: 'Payment received', message: 'Provisioning your server. Bot will DM you shortly.' });
-        } else if (status === 'cancelled') {
-          btn.disabled = false;
-        }
-      });
-    } catch (err) {
-      alert('Error: ' + err.message);
-      btn.disabled = false;
+      if (res.status === 'dry-run') {
+        msg.textContent = `Симуляция запуска. Команда Docker:\n${(res.docker || []).join(' ')}`;
+      } else if (res.status === 'started') {
+        msg.textContent = `Сервер запущен. Контейнер: ${res.containerName}`;
+      } else {
+        msg.textContent = 'Неизвестный ответ сервера';
+      }
+    } catch (e) {
+      msg.textContent = `Ошибка запуска: ${e.message}`;
+    } finally {
+      launchBtn.disabled = false;
     }
   });
-})();
+
+  // init
+  if (gameKeys.length) {
+    gameSelect.value = gameKeys[0];
+    onGameChange();
+  }
+}
+
+main();
+
